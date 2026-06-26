@@ -43,3 +43,9 @@ export type GenerateResponse = {
   article: ParsedArticle;
   result: string;
 };
+
+export type TranslateResponse = {
+  url: string;
+  article: ParsedArticle;
+  result: string;
+};
