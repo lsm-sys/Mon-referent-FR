@@ -42,6 +42,7 @@ export type GenerateResponse = {
   url: string;
   article: ParsedArticle;
   result: string;
+  truncated?: boolean;
 };
 
 export type TranslateResponse = {

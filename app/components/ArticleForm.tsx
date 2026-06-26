@@ -1,28 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import {
-  ACTIONS,
-  type ActionType,
-  type GenerateResponse,
-  type TranslateResponse,
-} from "@/app/types";
+import { ACTIONS, type ActionType, type GenerateResponse } from "@/app/types";
+import { LOADING_MESSAGES } from "@/lib/prompts";
 
 type Status = "idle" | "loading" | "success" | "error";
-type LoadingAction = ActionType | "translate" | null;
 
 export default function ArticleForm() {
   const [url, setUrl] = useState("");
   const [status, setStatus] = useState<Status>("idle");
-  const [activeAction, setActiveAction] = useState<LoadingAction>(null);
+  const [activeAction, setActiveAction] = useState<ActionType | null>(null);
   const [result, setResult] = useState("");
   const [error, setError] = useState("");
+  const [truncated, setTruncated] = useState(false);
 
   async function handleGenerate(action: ActionType) {
     setStatus("loading");
     setActiveAction(action);
     setError("");
     setResult("");
+    setTruncated(false);
 
     try {
       const response = await fetch("/api/generate", {
@@ -40,6 +37,7 @@ export default function ArticleForm() {
       }
 
       setResult(data.result);
+      setTruncated(Boolean(data.truncated));
       setStatus("success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue.");
@@ -47,39 +45,12 @@ export default function ArticleForm() {
     }
   }
 
-  async function handleTranslate() {
-    setStatus("loading");
-    setActiveAction("translate");
-    setError("");
-    setResult("");
-
-    try {
-      const response = await fetch("/api/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
-
-      const data = (await response.json()) as TranslateResponse & {
-        error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "Une erreur est survenue.");
-      }
-
-      setResult(data.result);
-      setStatus("success");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Une erreur est survenue.");
-      setStatus("error");
+  function getLoadingMessage(): string {
+    if (activeAction && activeAction in LOADING_MESSAGES) {
+      return LOADING_MESSAGES[activeAction];
     }
+    return "Chargement...";
   }
-
-  const loadingMessage =
-    activeAction === "translate"
-      ? "Traduction de l'article via DeepSeek..."
-      : "Chargement et analyse du HTML de l'article...";
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
@@ -105,24 +76,6 @@ export default function ArticleForm() {
           placeholder="https://exemple.fr/article"
           className="w-full rounded-xl border border-blue-200 px-4 py-3 text-slate-900 outline-none transition focus:border-[#002395] focus:ring-2 focus:ring-blue-200"
         />
-      </section>
-
-      <section className="rounded-2xl border border-white/20 bg-white/95 p-6 shadow-lg backdrop-blur-sm">
-        <button
-          type="button"
-          onClick={handleTranslate}
-          disabled={status === "loading"}
-          className="w-full rounded-xl border border-[#002395] bg-[#002395] px-4 py-4 text-left text-white shadow-md transition hover:bg-[#001a70] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <span className="block font-semibold">
-            {status === "loading" && activeAction === "translate"
-              ? "Traduction..."
-              : "Traduction de l'article (DeepSeek)"}
-          </span>
-          <span className="mt-1 block text-sm text-blue-100">
-            Traduire l&apos;article du francais vers le russe via OpenRouter
-          </span>
-        </button>
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2">
@@ -170,11 +123,17 @@ export default function ArticleForm() {
         )}
 
         {(status === "loading" || status === "success") && (
-          <pre className="min-h-40 whitespace-pre-wrap rounded-xl border border-blue-100 bg-blue-50/80 px-4 py-3 text-sm leading-relaxed text-slate-800">
-            {status === "loading"
-              ? loadingMessage
-              : result}
-          </pre>
+          <>
+            {status === "success" && truncated && (
+              <p className="mb-3 rounded-xl bg-amber-50 px-4 py-2 text-sm text-amber-800">
+                Le contenu de l&apos;article a ete tronque (limite 12 000
+                caracteres) avant l&apos;envoi a l&apos;IA.
+              </p>
+            )}
+            <pre className="min-h-40 whitespace-pre-wrap rounded-xl border border-blue-100 bg-blue-50/80 px-4 py-3 text-sm leading-relaxed text-slate-800">
+              {status === "loading" ? getLoadingMessage() : result}
+            </pre>
+          </>
         )}
       </section>
     </div>

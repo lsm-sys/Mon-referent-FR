@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import type { ActionType } from "@/app/types";
+import {
+  generateInfographicsForInstagram,
+  generatePostForTelegram,
+  generatePostsForInstagram,
+  generatePostsForX,
+} from "@/lib/generateContent";
 import { parseArticleFromUrl } from "@/lib/parseArticle";
-
-const ACTION_LABELS: Record<ActionType, string> = {
-  x: "Posts pour X",
-  "instagram-posts": "Posts pour Instagram",
-  "instagram-infographics": "Infographies pour Instagram",
-  telegram: "Post pour Telegram",
-};
+import { ACTION_LABELS } from "@/lib/prompts";
 
 function isValidUrl(value: string): boolean {
   try {
@@ -16,6 +16,30 @@ function isValidUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+async function runGeneration(
+  action: ActionType,
+  article: Awaited<ReturnType<typeof parseArticleFromUrl>>,
+  url: string,
+) {
+  if (action === "x") {
+    return generatePostsForX(article, url);
+  }
+
+  if (action === "instagram-posts") {
+    return generatePostsForInstagram(article, url);
+  }
+
+  if (action === "instagram-infographics") {
+    return generateInfographicsForInstagram(article, url);
+  }
+
+  if (action === "telegram") {
+    return generatePostForTelegram(article, url);
+  }
+
+  throw new Error("Action non reconnue.");
 }
 
 export async function POST(request: Request) {
@@ -61,22 +85,22 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = JSON.stringify(
-      {
-        date: article.date,
-        title: article.title,
-        content: article.content,
-      },
-      null,
-      2,
-    );
+    const { content, truncated } = await runGeneration(action, article, url);
 
-    return NextResponse.json({ action, url, article, result });
+    return NextResponse.json({
+      action,
+      url,
+      article,
+      result: content,
+      truncated,
+    });
   } catch (error) {
+    console.error(`[generate/${action}]`, error);
+
     const message =
       error instanceof Error
         ? error.message
-        : "Erreur lors du parsing de l'article.";
+        : "Erreur lors de la generation du contenu.";
 
     return NextResponse.json({ error: message }, { status: 502 });
   }
