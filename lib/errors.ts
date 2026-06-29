@@ -8,6 +8,7 @@ export type AppErrorCode =
   | "ARTICLE_PARSE_FAILED"
   | "AI_GENERATION_FAILED"
   | "AI_RESPONSE_INVALID"
+  | "IMAGE_GENERATION_FAILED"
   | "UNKNOWN";
 
 export class AppError extends Error {

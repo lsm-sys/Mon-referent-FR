@@ -4,16 +4,21 @@ import { useEffect, useRef, useState } from "react";
 import { ACTIONS, type ActionType } from "@/app/types";
 import ErrorAlert from "@/app/components/ErrorAlert";
 import type { AppErrorCode } from "@/lib/errors";
-import { requestGenerate } from "@/lib/apiClient";
+import { requestGenerate, requestIllustration } from "@/lib/apiClient";
+import { ILLUSTRATION_LOADING_MESSAGE } from "@/lib/prompts/illustration";
 import { LOADING_MESSAGES } from "@/lib/prompts";
 
 type Status = "idle" | "loading" | "success" | "error";
+type LoadingAction = ActionType | "illustration" | null;
+type ResultMode = "text" | "illustration";
 
 export default function ArticleForm() {
   const [url, setUrl] = useState("");
   const [status, setStatus] = useState<Status>("idle");
-  const [activeAction, setActiveAction] = useState<ActionType | null>(null);
+  const [activeAction, setActiveAction] = useState<LoadingAction>(null);
+  const [resultMode, setResultMode] = useState<ResultMode>("text");
   const [result, setResult] = useState("");
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<AppErrorCode | null>(null);
   const [truncated, setTruncated] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -22,23 +27,29 @@ export default function ArticleForm() {
   const requestIdRef = useRef(0);
 
   useEffect(() => {
-    if (status === "success" && result) {
+    if (status === "success" && (result || imageDataUrl)) {
       resultSectionRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "start",
       });
     }
-  }, [status, result]);
+  }, [status, result, imageDataUrl]);
+
+  function resetResultState() {
+    setResult("");
+    setImageDataUrl(null);
+    setErrorCode(null);
+    setTruncated(false);
+    setCopied(false);
+  }
 
   function handleClear() {
     requestIdRef.current += 1;
     setUrl("");
     setStatus("idle");
     setActiveAction(null);
-    setResult("");
-    setErrorCode(null);
-    setTruncated(false);
-    setCopied(false);
+    setResultMode("text");
+    resetResultState();
   }
 
   async function handleCopy() {
@@ -58,10 +69,8 @@ export default function ArticleForm() {
 
     setStatus("loading");
     setActiveAction(action);
-    setErrorCode(null);
-    setResult("");
-    setTruncated(false);
-    setCopied(false);
+    setResultMode("text");
+    resetResultState();
 
     const response = await requestGenerate(url, action);
 
@@ -78,10 +87,39 @@ export default function ArticleForm() {
     setStatus("success");
   }
 
+  async function handleIllustration() {
+    const requestId = ++requestIdRef.current;
+
+    setStatus("loading");
+    setActiveAction("illustration");
+    setResultMode("illustration");
+    resetResultState();
+
+    const response = await requestIllustration(url);
+
+    if (requestId !== requestIdRef.current) return;
+
+    if (!response.ok) {
+      setErrorCode(response.code);
+      setStatus("error");
+      return;
+    }
+
+    setResult(response.result);
+    setImageDataUrl(response.imageDataUrl);
+    setTruncated(response.truncated);
+    setStatus("success");
+  }
+
   function getLoadingMessage(): string {
+    if (activeAction === "illustration") {
+      return ILLUSTRATION_LOADING_MESSAGE;
+    }
+
     if (activeAction && activeAction in LOADING_MESSAGES) {
       return LOADING_MESSAGES[activeAction];
     }
+
     return "Chargement...";
   }
 
@@ -151,6 +189,27 @@ export default function ArticleForm() {
         })}
       </section>
 
+      <section className="rounded-2xl border border-white/20 bg-white/95 p-4 shadow-lg backdrop-blur-sm sm:p-5 lg:p-6">
+        <button
+          type="button"
+          onClick={() => {
+            void handleIllustration();
+          }}
+          disabled={status === "loading"}
+          className="w-full rounded-xl border border-[#002395] bg-[#002395] px-4 py-4 text-left text-white shadow-md transition hover:bg-[#001a70] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="block font-semibold">
+            {status === "loading" && activeAction === "illustration"
+              ? "Generation..."
+              : "Illustration"}
+          </span>
+          <span className="mt-1 block text-sm text-blue-100">
+            Creer un prompt via OpenRouter, puis generer une image via Hugging
+            Face
+          </span>
+        </button>
+      </section>
+
       <section
         ref={resultSectionRef}
         className="scroll-mt-4 rounded-2xl border border-white/20 bg-white/95 p-4 shadow-lg backdrop-blur-sm sm:scroll-mt-6 sm:p-5 lg:p-6"
@@ -194,9 +253,18 @@ export default function ArticleForm() {
                 caracteres) avant l&apos;envoi a l&apos;IA.
               </p>
             )}
-            <pre className="max-w-full min-h-40 overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-blue-100 bg-blue-50/80 px-4 py-3 text-sm leading-relaxed text-slate-800">
+            <pre className="max-w-full min-h-24 overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-blue-100 bg-blue-50/80 px-4 py-3 text-sm leading-relaxed text-slate-800">
               {status === "loading" ? getLoadingMessage() : result}
             </pre>
+            {status === "success" &&
+              resultMode === "illustration" &&
+              imageDataUrl && (
+                <img
+                  src={imageDataUrl}
+                  alt="Illustration generee"
+                  className="mt-4 max-h-[32rem] w-full rounded-xl border border-blue-100 object-contain"
+                />
+              )}
           </>
         )}
       </section>

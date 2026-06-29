@@ -11,6 +11,8 @@ export const ERROR_MESSAGES: Record<AppErrorCode, string> = {
     "Не удалось сгенерировать контент. Попробуйте позже.",
   AI_RESPONSE_INVALID:
     "Не удалось обработать ответ. Попробуйте ещё раз.",
+  IMAGE_GENERATION_FAILED:
+    "Не удалось сгенерировать иллюстрацию. Попробуйте позже.",
   UNKNOWN: "Произошла ошибка. Попробуйте позже.",
 };
 

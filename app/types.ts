@@ -55,3 +55,12 @@ export type TranslateResponse = {
   article: ParsedArticle;
   result: string;
 };
+
+export type IllustrationResponse = {
+  url: string;
+  article: ParsedArticle;
+  prompt: string;
+  imageDataUrl: string;
+  result: string;
+  truncated?: boolean;
+};
