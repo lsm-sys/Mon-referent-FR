@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { AppError } from "@/lib/errors";
 
 export type ParsedArticle = {
   date: string | null;
@@ -165,26 +166,37 @@ export function parseArticleHtml(html: string): ParsedArticle {
 }
 
 export async function fetchArticleHtml(url: string): Promise<string> {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (compatible; MonReferentFR/1.0; +https://github.com/lsm-sys/Mon_referent_FR)",
-      Accept: "text/html,application/xhtml+xml",
-      "Accept-Language": "fr-FR,fr;q=0.9",
-    },
-    signal: AbortSignal.timeout(15000),
-  });
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; MonReferentFR/1.0; +https://github.com/lsm-sys/Mon_referent_FR)",
+        Accept: "text/html,application/xhtml+xml",
+        "Accept-Language": "fr-FR,fr;q=0.9",
+      },
+      signal: AbortSignal.timeout(15000),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Impossible de charger la page (${response.status}).`);
+    if (!response.ok) {
+      throw new AppError("ARTICLE_FETCH_FAILED", 502);
+    }
+
+    const contentType = response.headers.get("content-type") ?? "";
+    if (
+      !contentType.includes("text/html") &&
+      !contentType.includes("application/xhtml")
+    ) {
+      throw new AppError("ARTICLE_FETCH_FAILED", 502);
+    }
+
+    return response.text();
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+
+    throw new AppError("ARTICLE_FETCH_FAILED", 502);
   }
-
-  const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
-    throw new Error("La reponse ne contient pas de HTML.");
-  }
-
-  return response.text();
 }
 
 export async function parseArticleFromUrl(url: string): Promise<ParsedArticle> {

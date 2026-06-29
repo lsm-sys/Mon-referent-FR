@@ -1,4 +1,5 @@
 import type { ActionType } from "@/app/types";
+import { AppError } from "@/lib/errors";
 import { formatArticleSource } from "@/lib/formatArticle";
 import type { ParsedArticle } from "@/lib/parseArticle";
 import { chatCompletion } from "@/lib/openrouter";
@@ -67,7 +68,7 @@ export async function generateContent(
   const { text, truncated } = formatArticleSource(article);
 
   if (!text.trim()) {
-    throw new Error("Aucun contenu a generer.");
+    throw new AppError("ARTICLE_PARSE_FAILED", 422);
   }
 
   const content = await chatCompletion([
@@ -88,7 +89,7 @@ export async function generatePostsForX(
   const { text, truncated } = formatArticleSource(article);
 
   if (!text.trim()) {
-    throw new Error("Aucun contenu a generer.");
+    throw new AppError("ARTICLE_PARSE_FAILED", 422);
   }
 
   const raw = await chatCompletion([
@@ -103,7 +104,7 @@ export async function generatePostsForX(
   const validationError = validateXPosts(parsed);
 
   if (validationError) {
-    throw new Error(validationError);
+    throw new AppError("AI_RESPONSE_INVALID", 502);
   }
 
   const formatted = formatXPostsOutput(parsed);
@@ -118,7 +119,7 @@ export async function generatePostsForInstagram(
   const { text, truncated } = formatArticleSource(article);
 
   if (!text.trim()) {
-    throw new Error("Aucun contenu a generer.");
+    throw new AppError("ARTICLE_PARSE_FAILED", 422);
   }
 
   const raw = await chatCompletion([
@@ -133,7 +134,7 @@ export async function generatePostsForInstagram(
   const validationError = validateInstagramPosts(parsed);
 
   if (validationError) {
-    throw new Error(validationError);
+    throw new AppError("AI_RESPONSE_INVALID", 502);
   }
 
   const formatted = formatInstagramPostsOutput(parsed);
@@ -148,7 +149,7 @@ export async function generateInfographicsForInstagram(
   const { text, truncated } = formatArticleSource(article);
 
   if (!text.trim()) {
-    throw new Error("Aucun contenu a generer.");
+    throw new AppError("ARTICLE_PARSE_FAILED", 422);
   }
 
   const raw = await chatCompletion([
@@ -163,7 +164,7 @@ export async function generateInfographicsForInstagram(
   const validationError = validateInstagramInfographics(parsed);
 
   if (validationError) {
-    throw new Error(validationError);
+    throw new AppError("AI_RESPONSE_INVALID", 502);
   }
 
   const formatted = formatInstagramInfographicsOutput(parsed);
@@ -178,7 +179,7 @@ export async function generatePostForTelegram(
   const { text, truncated } = formatArticleSource(article);
 
   if (!text.trim()) {
-    throw new Error("Aucun contenu a generer.");
+    throw new AppError("ARTICLE_PARSE_FAILED", 422);
   }
 
   const raw = await chatCompletion([
@@ -193,7 +194,7 @@ export async function generatePostForTelegram(
   const validationError = validateTelegramPost(parsed);
 
   if (validationError) {
-    throw new Error(validationError);
+    throw new AppError("AI_RESPONSE_INVALID", 502);
   }
 
   const formatted = formatTelegramPostOutput(parsed);

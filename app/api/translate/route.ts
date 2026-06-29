@@ -1,6 +1,12 @@
-import { NextResponse } from "next/server";
+import {
+  createApiErrorResponse,
+  resolveAppError,
+} from "@/lib/errors";
 import { parseArticleFromUrl } from "@/lib/parseArticle";
 import { translateArticle } from "@/lib/translateArticle";
+
+export const runtime = "nodejs";
+export const maxDuration = 120;
 
 function isValidUrl(value: string): boolean {
   try {
@@ -12,45 +18,30 @@ function isValidUrl(value: string): boolean {
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as { url?: string };
-  const url = body.url?.trim() ?? "";
-
-  if (!url) {
-    return NextResponse.json(
-      { error: "Veuillez saisir l'URL de l'article." },
-      { status: 400 },
-    );
-  }
-
-  if (!isValidUrl(url)) {
-    return NextResponse.json(
-      { error: "L'URL saisie n'est pas valide." },
-      { status: 400 },
-    );
-  }
-
   try {
+    const body = (await request.json()) as { url?: string };
+    const url = body.url?.trim() ?? "";
+
+    if (!url) {
+      return createApiErrorResponse("MISSING_URL", 400);
+    }
+
+    if (!isValidUrl(url)) {
+      return createApiErrorResponse("INVALID_URL", 400);
+    }
+
     const article = await parseArticleFromUrl(url);
 
     if (!article.title && !article.content) {
-      return NextResponse.json(
-        {
-          error:
-            "Impossible d'extraire le titre ou le contenu de cette page.",
-        },
-        { status: 422 },
-      );
+      return createApiErrorResponse("ARTICLE_PARSE_FAILED", 422);
     }
 
     const translation = await translateArticle(article);
 
-    return NextResponse.json({ url, article, result: translation });
+    return Response.json({ url, article, result: translation });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Erreur lors de la traduction.";
-
-    return NextResponse.json({ error: message }, { status: 502 });
+    console.error("[translate]", error);
+    const appError = resolveAppError(error);
+    return createApiErrorResponse(appError.code, appError.status);
   }
 }

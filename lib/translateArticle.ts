@@ -1,4 +1,5 @@
 import type { ParsedArticle } from "@/lib/parseArticle";
+import { AppError } from "@/lib/errors";
 import { formatArticleSource } from "@/lib/formatArticle";
 import { chatCompletion } from "@/lib/openrouter";
 
@@ -8,7 +9,7 @@ export async function translateArticle(
   const { text } = formatArticleSource(article);
 
   if (!text.trim()) {
-    throw new Error("Aucun contenu a traduire.");
+    throw new AppError("ARTICLE_PARSE_FAILED", 422);
   }
 
   return chatCompletion([

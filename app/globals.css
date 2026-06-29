@@ -9,7 +9,7 @@
 }
 
 body {
-  @apply min-h-screen text-slate-900 antialiased;
+  @apply min-h-screen overflow-x-hidden text-slate-900 antialiased;
   background-color: var(--french-blue);
   background-image:
     linear-gradient(

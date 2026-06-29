@@ -1,3 +1,5 @@
+import { AppError } from "@/lib/errors";
+
 const OPENROUTER_BASE_URL =
   process.env.OPENAI_BASE_URL ?? "https://openrouter.ai/api/v1";
 
@@ -26,40 +28,46 @@ export async function chatCompletion(
   const apiKey = process.env.OPENROUTER_API_KEY;
 
   if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY n'est pas configure.");
+    throw new AppError("AI_GENERATION_FAILED", 502);
   }
 
-  const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://mon-referent-fr.vercel.app",
-      "X-Title": "Mon referent FR",
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0.3,
-    }),
-    signal: AbortSignal.timeout(120000),
-  });
+  try {
+    const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://mon-referent-fr.vercel.app",
+        "X-Title": "Mon-referent-FR",
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.3,
+      }),
+      signal: AbortSignal.timeout(120000),
+    });
 
-  const data = (await response.json()) as ChatCompletionResponse;
+    const data = (await response.json()) as ChatCompletionResponse;
 
-  if (!response.ok) {
-    throw new Error(
-      data.error?.message ?? `Erreur OpenRouter (${response.status}).`,
-    );
+    if (!response.ok) {
+      throw new AppError("AI_GENERATION_FAILED", 502);
+    }
+
+    const content = data.choices?.[0]?.message?.content?.trim();
+
+    if (!content) {
+      throw new AppError("AI_GENERATION_FAILED", 502);
+    }
+
+    return content;
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+
+    throw new AppError("AI_GENERATION_FAILED", 502);
   }
-
-  const content = data.choices?.[0]?.message?.content?.trim();
-
-  if (!content) {
-    throw new Error("OpenRouter n'a pas renvoye de contenu.");
-  }
-
-  return content;
 }
 
 export { DEEPSEEK_MODEL };

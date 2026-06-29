@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import type { ActionType } from "@/app/types";
 import {
+  AppError,
+  createApiErrorResponse,
+  resolveAppError,
+} from "@/lib/errors";
+import {
   generateInfographicsForInstagram,
   generatePostForTelegram,
   generatePostsForInstagram,
@@ -8,6 +13,9 @@ import {
 } from "@/lib/generateContent";
 import { parseArticleFromUrl } from "@/lib/parseArticle";
 import { ACTION_LABELS } from "@/lib/prompts";
+
+export const runtime = "nodejs";
+export const maxDuration = 120;
 
 function isValidUrl(value: string): boolean {
   try {
@@ -39,50 +47,37 @@ async function runGeneration(
     return generatePostForTelegram(article, url);
   }
 
-  throw new Error("Action non reconnue.");
+  throw new AppError("INVALID_ACTION", 400);
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as {
-    url?: string;
-    action?: ActionType;
-  };
-
-  const url = body.url?.trim() ?? "";
-  const action = body.action;
-
-  if (!url) {
-    return NextResponse.json(
-      { error: "Veuillez saisir l'URL de l'article." },
-      { status: 400 },
-    );
-  }
-
-  if (!isValidUrl(url)) {
-    return NextResponse.json(
-      { error: "L'URL saisie n'est pas valide." },
-      { status: 400 },
-    );
-  }
-
-  if (!action || !(action in ACTION_LABELS)) {
-    return NextResponse.json(
-      { error: "Action non reconnue." },
-      { status: 400 },
-    );
-  }
+  let action: ActionType | undefined;
 
   try {
+    const body = (await request.json()) as {
+      url?: string;
+      action?: ActionType;
+    };
+
+    const url = body.url?.trim() ?? "";
+    action = body.action;
+
+    if (!url) {
+      return createApiErrorResponse("MISSING_URL", 400);
+    }
+
+    if (!isValidUrl(url)) {
+      return createApiErrorResponse("INVALID_URL", 400);
+    }
+
+    if (!action || !(action in ACTION_LABELS)) {
+      return createApiErrorResponse("INVALID_ACTION", 400);
+    }
+
     const article = await parseArticleFromUrl(url);
 
     if (!article.title && !article.content) {
-      return NextResponse.json(
-        {
-          error:
-            "Impossible d'extraire le titre ou le contenu de cette page.",
-        },
-        { status: 422 },
-      );
+      return createApiErrorResponse("ARTICLE_PARSE_FAILED", 422);
     }
 
     const { content, truncated } = await runGeneration(action, article, url);
@@ -95,13 +90,8 @@ export async function POST(request: Request) {
       truncated,
     });
   } catch (error) {
-    console.error(`[generate/${action}]`, error);
-
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Erreur lors de la generation du contenu.";
-
-    return NextResponse.json({ error: message }, { status: 502 });
+    const appError = resolveAppError(error);
+    console.error(`[generate/${action ?? "unknown"}]`, error);
+    return createApiErrorResponse(appError.code, appError.status);
   }
 }

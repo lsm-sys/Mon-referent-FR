@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Mon referent FR",
+  title: "Mon-referent-FR",
   description: "Traitement pour les reseaux sociaux",
 };
 

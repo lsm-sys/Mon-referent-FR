@@ -33,6 +33,7 @@ export const ACTIONS: ActionConfig[] = [
   },
 ];
 
+import type { AppErrorCode } from "@/lib/errors";
 import type { ParsedArticle } from "@/lib/parseArticle";
 
 export type { ParsedArticle };
@@ -43,6 +44,10 @@ export type GenerateResponse = {
   article: ParsedArticle;
   result: string;
   truncated?: boolean;
+};
+
+export type ApiErrorBody = {
+  code: AppErrorCode;
 };
 
 export type TranslateResponse = {
